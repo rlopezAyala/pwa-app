@@ -1,0 +1,15 @@
+node_modules
+public
+build
+dist
+deploy
+
+#TS Types
+*.d.ts
+
+#env
+vite.config.ts
+env-config.js
+
+#npm
+.npmrc
