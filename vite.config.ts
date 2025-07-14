@@ -15,12 +15,12 @@ export default defineConfig(({ mode }) => {
       createHtmlPlugin({
         minify: true,
         entry: "/src/index.tsx",
-        template: "index-local.html",
-        inject: {
-          data: {
-            envConfigTs: `${LOCAL_FOLDER_URL}/env-config.ts`
-          }
-        }
+        template: "index-local.html"
+        // inject: {
+        //   data: {
+        //     envConfigTs: `${LOCAL_FOLDER_URL}/env-config.ts`
+        //   }
+        // }
       })
     )
   } else {
