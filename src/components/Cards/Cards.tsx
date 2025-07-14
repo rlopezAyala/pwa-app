@@ -45,7 +45,7 @@ export default function Cards(props: Props) {
                     "fas fa-chevron-down": props.cardInfo && props.cardInfo[item] && !props.cardInfo[item].direction
                   })}
                 ></i>
-                {props.cardInfo && props.cardInfo[item] ? `${parseFloat(props.cardInfo[item].percentage.toFixed(2))}% ` : "0.0%"}
+                {props.cardInfo && props.cardInfo[item] ? `${parseFloat(props.cardInfo[item].percentage.toFixed(4))}% ` : "0.0%"}
               </div>
             </div>
           )
