@@ -16,9 +16,6 @@ interface CardValue {
 }
 
 export default function Cards(props: Props) {
-  // const [lastPrices, setLastPrices] = useState<Record<string, CardValue>>({})
-  // const lastPrices:Record<string, CardValue> = {}
-
   return render()
 
   function render() {

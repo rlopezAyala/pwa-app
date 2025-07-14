@@ -17,6 +17,7 @@ export default function BiaxialLineChart(props: Props) {
   let pData: number[] = [],
     xLabels: number[] = []
 
+  //Takes from the card info the prices, because for the chart is the only value needed.
   props.cardInfo.map((item) => {
     if (item.s == props.chartS.value) {
       pData.push(item.p)
@@ -24,6 +25,7 @@ export default function BiaxialLineChart(props: Props) {
     }
   })
 
+  //We slice it to a 29 elements.
   pData = pData.slice(pData.length - 30, pData.length - 1)
   xLabels = xLabels.slice(xLabels.length - 30, xLabels.length - 1)
 
