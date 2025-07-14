@@ -1,0 +1,32 @@
+.cardWrapper {
+  color: white;
+  flex-direction: row;
+  display: flex;
+  justify-content: space-evenly;
+}
+
+.cardTitleWrapper {
+  display: flex;
+  gap: 2rem;
+}
+
+.percentage-red {
+  color: #f45b5b;
+}
+
+.percentage-green {
+  color: #1db954;
+}
+
+.percentage-red,
+.percentage-green {
+  font-weight: 800;
+  display: flex;
+  gap: 1rem;
+}
+
+.linea {
+  border: solid 0.1px #444;
+  height: 4rem;
+  margin-top: 1rem;
+}

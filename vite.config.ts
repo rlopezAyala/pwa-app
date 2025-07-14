@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from "vite"
+import { VitePWA } from "vite-plugin-pwa"
 import react from "@vitejs/plugin-react-swc"
 import { createHtmlPlugin } from "vite-plugin-html"
 import path from "path"
@@ -14,12 +15,12 @@ export default defineConfig(({ mode }) => {
       createHtmlPlugin({
         minify: true,
         entry: "/src/index.tsx",
-        template: "index-local.html"
-        // inject: {
-        //   data: {
-        //     envConfigJs: `${LOCAL_FOLDER_URL}/env-config.js?`
-        //   }
-        // }
+        template: "index-local.html",
+        inject: {
+          data: {
+            envConfigTs: `${LOCAL_FOLDER_URL}/env-config.ts`
+          }
+        }
       })
     )
   } else {
@@ -44,7 +45,35 @@ export default defineConfig(({ mode }) => {
   return {
     define: { "process.env": JSON.stringify(env) },
     base: "/",
-    plugins: [react(), htmlPlugin],
+    plugins: [
+      react(),
+      htmlPlugin,
+
+      VitePWA({
+        registerType: "autoUpdate",
+        includeAssets: ["favicon.svg"],
+        manifest: {
+          name: "Finnhub Real-Time PWA",
+          short_name: "StockTracker",
+          start_url: "/",
+          display: "standalone",
+          background_color: "#ffffff",
+          theme_color: "#0f172a",
+          icons: [
+            {
+              src: "icon-192x192.png",
+              sizes: "192x192",
+              type: "image/png"
+            },
+            {
+              src: "icon-512x512.png",
+              sizes: "512x512",
+              type: "image/png"
+            }
+          ]
+        }
+      })
+    ],
     css: {
       modules: {
         scopeBehaviour: "local"
