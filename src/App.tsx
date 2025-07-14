@@ -4,7 +4,7 @@ import LeftForm from "./components/LeftForm/LeftForm"
 import { Datum, Trade } from "./types/models/trade"
 import Chart from "./components/Chart/Chart"
 import Cards from "./components/Cards/Cards"
-import { getAmounts, getPercentageChange } from "./utils/general"
+import { getAmounts, getLocalStorageItem } from "./utils/general"
 import { triggerPriceAlert } from "./utils/triggerPriceAlert"
 const apiToken = "d1q3rj9r01qrh89o0840d1q3rj9r01qrh89o084g"
 
@@ -35,6 +35,13 @@ function App() {
   })
 
   useEffect(() => {
+    const stored = getLocalStorageItem("trades", "[]")
+    const priceRef = getLocalStorageItem("lastPrices", JSON.stringify({}))
+    setTrades(stored)
+    setLastPrices(priceRef)
+  }, [])
+
+  useEffect(() => {
     socket.addEventListener("open", function (event) {
       socket.send(JSON.stringify({ type: "subscribe", symbol: "COINBASE:BTC-USD" }))
       socket.send(JSON.stringify({ type: "subscribe", symbol: "COINBASE:ETH-USD" }))
@@ -52,9 +59,7 @@ function App() {
 
       if (msg.type === "trade") {
         const newTrades = []
-        const existing = JSON.parse(localStorage.getItem("trades") || "[]")
-
-        newTrades.push(...existing)
+        newTrades.push(...lastTrades.current)
         newTrades.push(...msg.data)
         setTrades(newTrades)
 
@@ -117,6 +122,7 @@ function App() {
 
     setLastPrices({ ...lastPrices, ...newLastPrices })
     lastPricesRef.current = { ...lastPrices, ...newLastPrices }
+    localStorage.setItem("lastPrices", JSON.stringify(lastPricesRef.current))
   }
 
   return (

@@ -1,7 +1,15 @@
 .leftWrapper {
-  gap: 3rem;
+  padding: 5rem 3rem;
+  border-right: solid 1px #222;
 }
 
 .leftWrapper .selectWrapper {
   margin-top: 2rem;
+}
+
+@media (max-width: 990px) {
+  .leftWrapper {
+    padding: 1rem;
+    border-right: none;
+  }
 }

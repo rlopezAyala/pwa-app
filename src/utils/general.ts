@@ -29,3 +29,11 @@ export function getAmounts(trades: any[], lastPricesRef: RefObject<Record<string
   })
   return newLastPrices
 }
+
+export function getLocalStorageItem(name: string, def: string) {
+  try {
+    return JSON.parse(localStorage.getItem(name) || def)
+  } catch {
+    return []
+  }
+}

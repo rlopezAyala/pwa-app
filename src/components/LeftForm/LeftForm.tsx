@@ -28,6 +28,7 @@ function LeftForm(props: Props) {
   function render() {
     return (
       <div className="leftWrapper">
+        <p>Please add an alert price and a symbol</p>
         <TextField
           id="outlined-basic"
           label="Price Alert"
