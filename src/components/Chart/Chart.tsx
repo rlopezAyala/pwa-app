@@ -1,6 +1,6 @@
 import * as React from "react"
 import { LineChart } from "@mui/x-charts/LineChart"
-import { Datum, Trade } from "../../types/models/trade"
+import { Datum } from "../../types/models/trade"
 
 interface Props {
   socket: WebSocket
@@ -10,7 +10,7 @@ interface Props {
 
 interface Alert {
   value: string
-  price: string
+  price: number
 }
 
 export default function BiaxialLineChart(props: Props) {
@@ -23,11 +23,14 @@ export default function BiaxialLineChart(props: Props) {
       xLabels.push(item.t)
     }
   })
-  debugger
+
+  pData = pData.slice(pData.length - 30, pData.length - 1)
+  xLabels = xLabels.slice(xLabels.length - 30, xLabels.length - 1)
+
   return (
     <LineChart
       height={300}
-      series={[{ data: pData, label: "pv", yAxisId: "leftAxisId" }]}
+      series={[{ data: pData, label: "Amount", yAxisId: "leftAxisId" }]}
       xAxis={[{ scaleType: "point", data: xLabels }]}
       yAxis={[
         { id: "leftAxisId", width: 50 },
