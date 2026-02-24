@@ -10,3 +10,9 @@ export interface Datum {
   t: number
   v: number
 }
+
+export interface CardValue {
+  price: number
+  direction: boolean
+  percentage: number
+}

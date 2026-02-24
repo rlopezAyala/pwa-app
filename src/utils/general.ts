@@ -1,39 +1,31 @@
-import { RefObject } from "react"
-import { CardValue } from "../App"
+import { CardValue, Datum } from "../types/models/trade"
+import PriceService from "../services/priceService"
+import TradeService from "../services/tradeService"
 
-export function getPercentageChange(oldPrice: number, newPrice: number) {
-  return ((newPrice - oldPrice) / oldPrice) * 100
+/**
+ * @deprecated Use PriceService.getPercentageChange instead
+ */
+export function getPercentageChange(oldPrice: number, newPrice: number): number {
+  return PriceService.getPercentageChange(oldPrice, newPrice)
 }
 
-export function getAmounts(trades: any[], lastPricesRef: RefObject<Record<string, CardValue>>) {
-  let newLastPrices = {}
-
-  trades.forEach((trade) => {
-    const newPrice = trade.p
-    const oldPrice = lastPricesRef.current[trade.s] && lastPricesRef.current[trade.s].price
-
-    let direction = true
-    let percentage = 0
-    if (oldPrice !== undefined) {
-      percentage = getPercentageChange(oldPrice, newPrice)
-      if (newPrice > oldPrice) {
-        direction = true
-      } else if (newPrice < oldPrice) {
-        direction = false
-      }
-    }
-    newLastPrices = {
-      ...newLastPrices,
-      [trade.s]: { price: newPrice, direction, percentage }
-    }
-  })
-  return newLastPrices
+/**
+ * Calculate card values from trades
+ * @deprecated Use PriceService.calculateCardValues instead
+ */
+export function getAmounts(trades: Datum[]): Record<string, CardValue> {
+  return PriceService.calculateCardValues(trades, {})
 }
 
-export function getLocalStorageItem(name: string, def: string) {
+/**
+ * Get item from localStorage with fallback
+ */
+export function getLocalStorageItem<T = unknown>(name: string, def: string): T {
   try {
-    return JSON.parse(localStorage.getItem(name) || def)
-  } catch {
-    return []
+    const item = localStorage.getItem(name)
+    return item ? JSON.parse(item) : JSON.parse(def)
+  } catch (error) {
+    console.error(`Error parsing localStorage item "${name}":`, error)
+    return JSON.parse(def)
   }
 }

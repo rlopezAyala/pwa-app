@@ -3,11 +3,27 @@
   flex-direction: row;
   display: flex;
   justify-content: space-evenly;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .cardTitleWrapper {
   display: flex;
   gap: 2rem;
+  align-items: center;
+}
+
+.cardTitleWrapper p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.price-red {
+  color: #f45b5b;
+}
+
+.price-green {
+  color: #1db954;
 }
 
 .percentage-red {
@@ -18,11 +34,17 @@
   color: #1db954;
 }
 
+.percentage-neutral {
+  color: #999;
+}
+
 .percentage-red,
-.percentage-green {
+.percentage-green,
+.percentage-neutral {
   font-weight: 800;
   display: flex;
   gap: 1rem;
+  align-items: center;
 }
 
 .linea {

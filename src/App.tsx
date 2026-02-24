@@ -1,143 +1,225 @@
 import React, { useEffect, useRef, useState } from "react"
 import "./App.css"
 import LeftForm from "./components/LeftForm/LeftForm"
-import { Datum, Trade } from "./types/models/trade"
+import { Datum, CardValue } from "./types/models/trade"
 import Chart from "./components/Chart/Chart"
 import Cards from "./components/Cards/Cards"
-import { getAmounts, getLocalStorageItem } from "./utils/general"
-import { triggerPriceAlert } from "./utils/triggerPriceAlert"
-const apiToken = "d1q3rj9r01qrh89o0840d1q3rj9r01qrh89o084g"
+import { getLocalStorageItem } from "./utils/general"
+import FinnhubWebSocketService from "./services/websocketService"
+import PriceService from "./services/priceService"
+import TradeService from "./services/tradeService"
+import NotificationService from "./services/notificationService"
 
-const socket = new WebSocket(`wss://ws.finnhub.io?token=${apiToken}`)
+const API_TOKEN = "d1q3rj9r01qrh89o0840d1q3rj9r01qrh89o084g"
+
 export interface Alert {
   value: string
   price: number
+  type: "above" | "below" | "any"
 }
-export interface CardValue {
-  price: number
-  direction: string
-  percentage: number
-}
+
+// Supported symbols for subscription
+const SYMBOL_LIST = ["COINBASE:BTC-USD", "COINBASE:ETH-USD", "OANDA:EUR_USD", "OANDA:GBP_USD", "AAPL", "MSFT", "AMZN"]
 
 function App() {
-  const [trades, setTrades] = useState<Trade[]>([])
+  // ========== STATE ==========
+  const [trades, setTrades] = useState<Datum[]>([])
+  const [lastPrices, setLastPrices] = useState<Record<string, CardValue>>({})
   const [alert, setAlert] = useState<Alert>({
     value: "",
-    price: 0.0
+    price: 0.0,
+    type: "any"
   })
-  const symbolList = ["COINBASE:BTC-USD", "COINBASE:ETH-USD", "OANDA:EUR_USD", "OANDA:GBP_USD", "AAPL", "MSFT", "AMZN"]
-  const [lastPrices, setLastPrices] = useState<Record<string, CardValue>>({})
+  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("disconnected")
+
+  // ========== REFS ==========
+  const wsServiceRef = useRef<FinnhubWebSocketService | null>(null)
+  const unsubscribersRef = useRef<(() => void)[]>([])
+  const alertPriceRef = useRef<Alert>(alert)
   const lastPricesRef = useRef<Record<string, CardValue>>({})
-  const lastTrades = useRef<Trade[]>([])
-  const alertPriceRef = useRef<Alert>({
-    value: "",
-    price: 0.0
-  })
 
+  // ========== INITIALIZATION ==========
+  /**
+   * Initialize WebSocket service and handlers
+   */
   useEffect(() => {
-    const stored = getLocalStorageItem("trades", "[]")
-    const priceRef = getLocalStorageItem("lastPrices", JSON.stringify({}))
-    setTrades(stored)
-    setLastPrices(priceRef)
-  }, [])
+    // Load persisted data
+    const storedTrades = getLocalStorageItem<Datum[]>("trades", "[]")
+    const storedPrices = getLocalStorageItem<Record<string, CardValue>>("lastPrices", "{}")
+    setTrades(storedTrades)
+    setLastPrices(storedPrices)
+    lastPricesRef.current = storedPrices
 
-  useEffect(() => {
-    socket.addEventListener("open", function (event) {
-      socket.send(JSON.stringify({ type: "subscribe", symbol: "COINBASE:BTC-USD" }))
-      socket.send(JSON.stringify({ type: "subscribe", symbol: "COINBASE:ETH-USD" }))
-      socket.send(JSON.stringify({ type: "subscribe", symbol: "OANDA:EUR_USD" }))
-      socket.send(JSON.stringify({ type: "subscribe", symbol: "OANDA:GBP_USD" }))
-      socket.send(JSON.stringify({ type: "subscribe", symbol: "AAPL" }))
-      socket.send(JSON.stringify({ type: "subscribe", symbol: "MSFT" }))
-      socket.send(JSON.stringify({ type: "subscribe", symbol: "AMZN" }))
+    // Initialize notification service
+    NotificationService.requestPermission().catch((err: unknown) => console.error("Notification permission error:", err))
+    NotificationService.initializeServiceWorker().catch((err: unknown) => console.error("Service Worker init error:", err))
+
+    // Initialize WebSocket service
+    wsServiceRef.current = new FinnhubWebSocketService({ apiToken: API_TOKEN })
+
+    // Set up connection handlers
+    const unsubConnect = wsServiceRef.current.onConnect(() => {
+      setConnectionStatus("connected")
+      subscribeToInitialSymbols()
     })
 
-    // Listen for messages
-    socket.addEventListener("message", function (event) {
-      console.log("Message from server ", event.data)
-      const msg = JSON.parse(event.data)
-
-      if (msg.type === "trade") {
-        const newTrades = []
-        newTrades.push(...lastTrades.current)
-        newTrades.push(...msg.data)
-        setTrades(newTrades)
-
-        msg.data.forEach((trade: any) => {
-          if (trade.s === alertPriceRef.current.value && trade.p <= alertPriceRef.current.price) {
-            // push notification
-            triggerPriceAlert(trade.s, alertPriceRef.current.price as unknown as number)
-          }
-        })
-      }
+    const unsubError = wsServiceRef.current.onError((_error: Event) => {
+      console.error("WebSocket error:", _error)
+      setConnectionStatus("disconnected")
     })
 
-    if ("serviceWorker" in navigator && "Notification" in window) {
-      window.addEventListener("load", async () => {
-        try {
-          const registration = await navigator.serviceWorker.register("/sw.js")
-          console.log("Service Worker registered:", registration)
+    const unsubClose = wsServiceRef.current.onClose(() => {
+      setConnectionStatus("disconnected")
+    })
 
-          // Ask for permission
-          const permission = await Notification.requestPermission()
-          console.log("Notification permission:", permission)
-        } catch (err) {
-          console.error("Service Worker registration failed:", err)
-        }
-      })
-    }
+    // Set up message handler
+    const unsubMessage = wsServiceRef.current.onMessage((_msg: any) => {
+      handleTradeMessage(_msg.data)
+    })
 
+    // Connect to WebSocket
+    setConnectionStatus("connecting")
+    wsServiceRef.current.connect().catch((_err: unknown) => {
+      console.error("Failed to connect to WebSocket:", _err)
+      setConnectionStatus("disconnected")
+    })
+
+    // Store unsubscribers for cleanup
+    unsubscribersRef.current = [unsubConnect, unsubError, unsubClose, unsubMessage]
+
+    // Cleanup on unmount
     return () => {
-      socket.close()
+      unsubscribersRef.current.forEach((_unsub: () => void) => _unsub())
+      wsServiceRef.current?.disconnect()
     }
   }, [])
 
+  // ========== ALERT REF SYNC ==========
+  /**
+   * Keep alert ref in sync with state
+   */
   useEffect(() => {
     alertPriceRef.current = alert
   }, [alert])
 
+  // ========== LAST PRICES REF SYNC ==========
+  /**
+   * Keep last prices ref in sync with state
+   */
   useEffect(() => {
-    if (trades != lastTrades.current) {
-      lastTrades.current = trades
-      const lastTradesSliced = lastTrades.current.slice(-100)
+    lastPricesRef.current = lastPrices
+  }, [lastPrices])
 
-      localStorage.setItem("trades", JSON.stringify(lastTradesSliced))
-      handleTrades(trades)
+  // ========== HANDLERS ==========
+  /**
+   * Handle incoming trade messages
+   */
+  function handleTradeMessage(tradeData: Datum[]): void {
+    // Merge with existing trades and store
+    const mergedTrades = TradeService.mergeTrades(trades, tradeData)
+    setTrades(mergedTrades)
+    TradeService.storeTradesInMemory(mergedTrades)
+
+    // Update card prices and percentages
+    const newCardValues = PriceService.calculateCardValues(tradeData, lastPricesRef.current)
+    const updatedPrices = { ...lastPricesRef.current, ...newCardValues }
+    setLastPrices(updatedPrices)
+    lastPricesRef.current = updatedPrices
+
+    try {
+      localStorage.setItem("lastPrices", JSON.stringify(updatedPrices))
+    } catch (error) {
+      console.error("Error storing last prices:", error)
     }
-  }, [trades])
 
-  function selectValue(value: string, price: string) {
-    socket.send(JSON.stringify({ type: "subscribe", symbol: value }))
-    setAlert({ value, price: parseFloat(price) })
+    // Check for price alerts
+    checkPriceAlerts(tradeData)
   }
 
   /**
-   * This funtion compares the new price with the old price and gets the percentage, and the direction to change the color and the arrow
-   * @param trades
+   * Check if any trades trigger price alerts
    */
-  function handleTrades(trades: any[]) {
-    let newLastPrices = {}
+  function checkPriceAlerts(tradeData: Datum[]): void {
+    if (!alertPriceRef.current.value) {
+      return // No alert set
+    }
 
-    newLastPrices = getAmounts(trades, lastPricesRef)
+    tradeData.forEach((trade) => {
+      if (trade.s === alertPriceRef.current.value) {
+        const oldPrice = lastPricesRef.current[trade.s]?.price
 
-    setLastPrices({ ...lastPrices, ...newLastPrices })
-    lastPricesRef.current = { ...lastPrices, ...newLastPrices }
-    localStorage.setItem("lastPrices", JSON.stringify(lastPricesRef.current))
+        // Check if threshold was crossed or if current price meets alert criteria
+        const shouldAlert =
+          PriceService.hasThresholdCrossed(oldPrice, trade.p, alertPriceRef.current.price) ||
+          PriceService.shouldTriggerAlert(trade.p, alertPriceRef.current.price, alertPriceRef.current.type)
+
+        if (shouldAlert) {
+          NotificationService.showPriceAlert(trade.s, alertPriceRef.current.price, trade.p).catch((_err: unknown) =>
+            console.error("Error showing notification:", _err)
+          )
+        }
+      }
+    })
   }
 
+  /**
+   * Subscribe to initial symbols
+   */
+  function subscribeToInitialSymbols(): void {
+    if (!wsServiceRef.current) return
+
+    SYMBOL_LIST.forEach((symbol) => {
+      wsServiceRef.current?.subscribe(symbol)
+    })
+  }
+
+  /**
+   * Handle symbol selection and alert setup
+   */
+  function selectValue(value: string, price: string, alertType: "above" | "below" | "any" = "any"): void {
+    if (!wsServiceRef.current) {
+      console.error("WebSocket service not initialized")
+      return
+    }
+
+    // Subscribe to the symbol
+    wsServiceRef.current.subscribe(value)
+
+    // Update alert
+    setAlert({
+      value,
+      price: parseFloat(price),
+      type: alertType
+    })
+
+    console.log(`📌 Alert set for ${value} at $${price} (${alertType})`)
+  }
+
+  // ========== RENDER ==========
   return (
     <div className="App">
-      <div className="Top-Bar">
-        <Cards cardInfo={lastPrices} names={symbolList as string[]} />
+      <div
+        className="connection-status"
+        style={{
+          textAlign: "center",
+          padding: "10px",
+          backgroundColor: connectionStatus === "connected" ? "#4caf50" : connectionStatus === "connecting" ? "#ff9800" : "#f44336",
+          color: "white",
+          fontSize: "12px"
+        }}
+      >
+        {connectionStatus === "connected" && "✅ Connected"}
+        {connectionStatus === "connecting" && "🔄 Connecting..."}
+        {connectionStatus === "disconnected" && "❌ Disconnected"}
       </div>
+
+      <div className="Top-Bar">
+        <Cards cardInfo={lastPrices} names={SYMBOL_LIST} alertPrice={alert.price} />
+      </div>
+
       <div className="App-header">
-        <LeftForm
-          dropdownData={symbolList as string[]}
-          selectValue={(value, price) => {
-            selectValue(value, price)
-          }}
-        />
-        <Chart socket={socket} cardInfo={trades as unknown as Datum[]} chartS={alert}></Chart>
+        <LeftForm dropdownData={SYMBOL_LIST} selectValue={selectValue} />
+        <Chart cardInfo={trades} chartS={alert} />
       </div>
     </div>
   )

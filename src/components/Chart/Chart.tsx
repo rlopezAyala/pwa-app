@@ -3,41 +3,70 @@ import { LineChart } from "@mui/x-charts/LineChart"
 import { Datum } from "../../types/models/trade"
 
 interface Props {
-  socket: WebSocket
   cardInfo: Datum[]
-  chartS: Alert
-}
-
-interface Alert {
-  value: string
-  price: number
+  chartS: {
+    value: string
+    price: number
+    type?: "above" | "below" | "any"
+  }
 }
 
 export default function BiaxialLineChart(props: Props) {
-  let pData: number[] = [],
-    xLabels: number[] = []
+  let pData: number[] = []
+  let xLabels: (number | string)[] = []
 
-  //Takes from the card info the prices, because for the chart is the only value needed.
-  props.cardInfo.map((item) => {
-    if (item.s == props.chartS.value) {
+  // Filter trades for the selected symbol and extract prices
+  const filteredTrades = props.cardInfo.filter((item) => item.s === props.chartS.value)
+
+  // Get the last 30 trades
+  const recentTrades = filteredTrades.slice(Math.max(0, filteredTrades.length - 30))
+
+  // If no trades yet, show placeholder data
+  if (recentTrades.length === 0) {
+    // Show placeholder message
+    pData = [0]
+    xLabels = ["No Data"]
+  } else {
+    recentTrades.forEach((item) => {
       pData.push(item.p)
       xLabels.push(item.t)
-    }
-  })
-
-  //We slice it to a 29 elements.
-  pData = pData.slice(pData.length - 30, pData.length - 1)
-  xLabels = xLabels.slice(xLabels.length - 30, xLabels.length - 1)
+    })
+  }
 
   return (
-    <LineChart
-      height={300}
-      series={[{ data: pData, label: "Amount", yAxisId: "leftAxisId" }]}
-      xAxis={[{ scaleType: "point", data: xLabels }]}
-      yAxis={[
-        { id: "leftAxisId", width: 50 },
-        { id: "rightAxisId", position: "right" }
-      ]}
-    />
+    <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+      {/* Show message when no symbol selected or no data */}
+      {(!props.chartS.value || recentTrades.length === 0) && (
+        <div
+          style={{
+            height: "300px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#999",
+            fontSize: "14px",
+            width: "100%",
+            backgroundColor: "#f5f5f5",
+            borderRadius: "4px"
+          }}
+        >
+          {!props.chartS.value ? "📊 Select a stock to see price history" : "⏳ Waiting for price data..."}
+        </div>
+      )}
+
+      {/* Show chart only when there is data */}
+      {props.chartS.value && recentTrades.length > 0 && (
+        <LineChart
+          width={500}
+          height={300}
+          series={[{ data: pData, label: `${props.chartS.value} Price`, yAxisId: "leftAxisId" }]}
+          xAxis={[{ scaleType: "point", data: xLabels }]}
+          yAxis={[
+            { id: "leftAxisId", width: 50 },
+            { id: "rightAxisId", position: "right" }
+          ]}
+        />
+      )}
+    </div>
   )
 }

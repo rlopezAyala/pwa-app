@@ -1,48 +1,63 @@
 import classNames from "classnames"
-import Divider from "@mui/material/Divider"
-import { Trade } from "../../types/models/trade"
+import { CardValue } from "../../types/models/trade"
 import "./Cards.css"
-import { useEffect, useRef, useState } from "react"
 
 interface Props {
   cardInfo: Record<string, CardValue>
   names: string[]
+  alertPrice?: number
 }
 
-interface CardValue {
-  price: number
-  direction: string
-  percentage: number
-}
-
+/**
+ * Top Cards Component - Displays stock name, current price, and change percentage
+ * Colors: Red if price is below alert, Green if price is above alert
+ * Shows up/down chevron based on price direction (increase/decrease)
+ */
 export default function Cards(props: Props) {
   return render()
 
   function render() {
-    const { names } = props
+    const { names, alertPrice } = props
 
     return (
       <div className="cardWrapper">
-        {names.map((item, key) => {
+        {names.map((item) => {
+          const cardData = props.cardInfo?.[item]
+          const price = cardData?.price
+          const direction = cardData?.direction
+          const percentage = cardData?.percentage
+
+          // Determine card color: Red if below alert price, Green if above
+          const isBelowAlert = alertPrice !== undefined && price !== undefined && price < alertPrice
+          const isAboveAlert = alertPrice !== undefined && price !== undefined && price >= alertPrice
+
           return (
-            <div>
+            <div key={item}>
               <div className="cardTitleWrapper">
                 <p>{item}</p>
-                <p>{props.cardInfo && props.cardInfo[item] && props.cardInfo[item].price && parseFloat(props.cardInfo[item].price.toFixed(2))}</p>
+                <p
+                  className={classNames({
+                    "price-red": isBelowAlert,
+                    "price-green": isAboveAlert
+                  })}
+                >
+                  ${price ? parseFloat(price.toFixed(2)) : "N/A"}
+                </p>
               </div>
               <div
                 className={classNames({
-                  "percentage-red": props.cardInfo && props.cardInfo[item] && !props.cardInfo[item].direction,
-                  "percentage-green": props.cardInfo && props.cardInfo[item] && props.cardInfo[item].direction
+                  "percentage-red": isBelowAlert,
+                  "percentage-green": isAboveAlert,
+                  "percentage-neutral": alertPrice === undefined || price === undefined
                 })}
               >
                 <i
                   className={classNames({
-                    "fas fa-chevron-up": props.cardInfo && props.cardInfo[item] && props.cardInfo[item].direction,
-                    "fas fa-chevron-down": props.cardInfo && props.cardInfo[item] && !props.cardInfo[item].direction
+                    "fas fa-chevron-up": direction !== undefined && direction,
+                    "fas fa-chevron-down": direction !== undefined && !direction
                   })}
                 ></i>
-                {props.cardInfo && props.cardInfo[item] ? `${parseFloat(props.cardInfo[item].percentage.toFixed(4))}% ` : "0.0%"}
+                {percentage !== undefined ? `${parseFloat(percentage.toFixed(4))}% ` : "0.0%"}
               </div>
             </div>
           )
